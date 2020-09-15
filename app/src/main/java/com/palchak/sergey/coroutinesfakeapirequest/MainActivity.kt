@@ -9,6 +9,8 @@ import kotlinx.coroutines.Dispatchers.Main
 
 class MainActivity : AppCompatActivity() {
 
+    // Timeout (1900ms)is less than time required both results to be obtained(1000ms + 1000ms)
+    private val JOB_TIMEOUT = 1900L
     private val RESULT_1 = "Result #1"
     private val RESULT_2 = "Result #2"
 
@@ -26,12 +28,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun fakeApiRequest() {
-        val result1 = getResult1FromApi()
-        println("debug: $result1")
-        setTextOnMainThread(result1)
-        val result2 = getResult2FromApi()
-        println("debug: $result2")
-        setTextOnMainThread(result2)
+        withContext(IO) {
+            val job = withTimeoutOrNull(JOB_TIMEOUT) {
+                val result1 = getResult1FromApi()
+                println("debug: $result1")
+                setTextOnMainThread(result1)
+                val result2 = getResult2FromApi()
+                println("debug: $result2")
+                setTextOnMainThread(result2)
+            }
+
+            if (job == null) {
+                val cancelMessage = "Cancelling job... Job took longer than $JOB_TIMEOUT ms"
+                println("debug: $cancelMessage")
+                setTextOnMainThread(cancelMessage)
+            }
+        }
     }
 
     private suspend fun getResult1FromApi(): String {
