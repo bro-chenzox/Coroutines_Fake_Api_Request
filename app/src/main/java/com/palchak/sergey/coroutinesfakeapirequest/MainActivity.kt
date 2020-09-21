@@ -1,11 +1,13 @@
 package com.palchak.sergey.coroutinesfakeapirequest
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers.Default
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
+import kotlin.system.measureTimeMillis
 
 class MainActivity : AppCompatActivity() {
 
@@ -19,19 +21,41 @@ class MainActivity : AppCompatActivity() {
         button.setOnClickListener {
             setNewText("Click")
 
-            CoroutineScope(IO).launch {
-                fakeApiRequest()
-            }
+            fakeApiRequest()
         }
     }
 
-    private suspend fun fakeApiRequest() {
-        val result1 = getResult1FromApi()
-        println("debug: $result1")
-        setTextOnMainThread(result1)
-        val result2 = getResult2FromApi()
-        println("debug: $result2")
-        setTextOnMainThread(result2)
+    private fun fakeApiRequest() {
+
+        CoroutineScope(IO).launch {
+            val executionTime = measureTimeMillis {
+
+                val result1 =
+                    withContext(Default) {
+                        println("debug: launching job ${Thread.currentThread().name}")
+                        getResult1FromApi()
+                    }
+                setTextOnMainThread(result1)
+                /*
+                 * withContext(Dispatchers.Default) { } is the same as chain call async { }.await()
+                 */
+
+                val result2 = // firstly argument is result1(instead of "eeeee"
+                    withContext(Default) {
+                        println("debug: launching job ${Thread.currentThread().name}")
+                        try {
+                            // firstly argument is result1(instead of "eeeee"
+                            getResult2FromApi("eeeee")
+                        } catch (e: CancellationException) {
+                            e.message
+                        }
+                    }
+                setTextOnMainThread(result2 ?: "Result #1 was incorrect...")
+
+                println("debug: got result2: $result2")
+            }
+            println("debug: total elapsed time: $executionTime ms.")
+        }
     }
 
     private suspend fun getResult1FromApi(): String {
@@ -40,10 +64,13 @@ class MainActivity : AppCompatActivity() {
         return RESULT_1
     }
 
-    private suspend fun getResult2FromApi(): String {
+    private suspend fun getResult2FromApi(result1: String): String {
         logThread("getResult2FromApi")
-        delay(1000)
-        return RESULT_2
+        delay(1700)
+        if (result1 == RESULT_1) {
+            return RESULT_2
+        }
+        throw CancellationException("Result #1 was incorrect...")
     }
 
     private fun logThread(methodName: String) {
