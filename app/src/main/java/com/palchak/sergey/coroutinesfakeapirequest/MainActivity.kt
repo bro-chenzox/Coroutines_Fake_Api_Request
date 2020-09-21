@@ -19,19 +19,23 @@ class MainActivity : AppCompatActivity() {
         button.setOnClickListener {
             setNewText("Click")
 
-            CoroutineScope(IO).launch {
-                fakeApiRequest()
-            }
+            fakeApiRequest()
         }
     }
 
-    private suspend fun fakeApiRequest() {
-        val result1 = getResult1FromApi()
-        println("debug: $result1")
-        setTextOnMainThread(result1)
-        val result2 = getResult2FromApi()
-        println("debug: $result2")
-        setTextOnMainThread(result2)
+    private fun fakeApiRequest() {
+
+        CoroutineScope(IO).launch {
+            val job = launch {
+                val result1 = getResult1FromApi()
+                setTextOnMainThread(result1)
+            }
+
+            val result2 = async {
+                getResult2FromApi()
+            }
+            setTextOnMainThread(result2.await())
+        }
     }
 
     private suspend fun getResult1FromApi(): String {
@@ -42,7 +46,7 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun getResult2FromApi(): String {
         logThread("getResult2FromApi")
-        delay(1000)
+        delay(1700)
         return RESULT_2
     }
 
